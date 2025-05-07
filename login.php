@@ -2,26 +2,40 @@
 session_start();
 require_once 'config/database.php';
 
-// Ensure database connection is available
+$db_error = null;
+$pdo_available = true;
+
+// Cek koneksi database
 if (!isset($pdo)) {
-    die("Database connection not available");
+    $db_error = "Database connection not available";
+    $pdo_available = false;
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch();
-
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
+    // Jika tombol force login ditekan
+    if (isset($_POST['force_login'])) {
+        $_SESSION['user_id'] = 0;
+        $_SESSION['username'] = 'DemoUser';
         header("Location: index.php");
         exit();
-    } else {
-        $error = "Invalid username or password";
+    }
+    // Jika koneksi database tersedia, proses login normal
+    if ($pdo_available) {
+        $username = $_POST['username'];
+        $password = $_POST['password'];
+
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
+
+        if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            header("Location: index.php");
+            exit();
+        } else {
+            $error = "Invalid username or password";
+        }
     }
 }
 ?>
@@ -50,32 +64,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .login-box {
             width: 400px;
             padding: 20px;
-            background: rgba(0, 0, 0, 0.9);
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
-            animation: fadeIn 0.5s ease-in-out;
-            border: 1px solid #8B0000;
+            background: rgba(0, 0, 0, 0.92);
+            border-radius: 18px;
+            box-shadow: 0 0 30px 0 rgba(139,0,0,0.7);
+            animation: fadeIn 0.7s cubic-bezier(.4,0,.2,1);
+            border: 2px solid #8B0000;
         }
         .login-logo {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             text-align: center;
         }
         .login-logo a {
-            font-size: 28px;
+            font-size: 30px;
             color: #fff;
             text-decoration: none;
             font-weight: bold;
+            letter-spacing: 1px;
         }
         .login-logo b {
             color: #ff0000;
         }
         .login-card-body {
-            padding: 30px;
-            border-radius: 10px;
-            background: rgba(0, 0, 0, 0.8);
+            padding: 32px 28px 24px 28px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.85);
         }
         .input-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         .input-group-text {
             background: #8B0000;
@@ -83,49 +98,75 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: white;
         }
         .form-control {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid #8B0000;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid #8B0000;
             color: white;
-            padding: 12px;
+            padding: 13px;
             height: auto;
+            border-radius: 7px;
         }
         .form-control:focus {
-            background: rgba(255, 255, 255, 0.15);
+            background: rgba(255,255,255,0.15);
             border-color: #ff0000;
-            box-shadow: 0 0 0 0.2rem rgba(139, 0, 0, 0.25);
+            box-shadow: 0 0 0 0.2rem rgba(139,0,0,0.18);
             color: white;
         }
         .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(255,255,255,0.5);
         }
         .btn-primary {
             background: #8B0000;
             border: none;
-            padding: 12px;
-            font-size: 16px;
+            padding: 13px;
+            font-size: 17px;
             font-weight: bold;
-            transition: all 0.3s ease;
+            border-radius: 7px;
+            transition: all 0.3s cubic-bezier(.4,0,.2,1);
         }
         .btn-primary:hover {
             background: #ff0000;
-            transform: translateY(-2px);
+            transform: translateY(-2px) scale(1.03);
+        }
+        .btn-danger {
+            background: #ff0000;
+            border: none;
+            padding: 13px;
+            font-size: 17px;
+            font-weight: bold;
+            border-radius: 7px;
+            margin-top: 8px;
+            transition: all 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        .btn-danger:hover {
+            background: #8B0000;
+            color: #fff;
+            transform: translateY(-2px) scale(1.03);
         }
         .alert {
             border-radius: 8px;
-            margin-bottom: 20px;
-            background: rgba(139, 0, 0, 0.2);
-            border: 1px solid #8B0000;
+            margin-bottom: 18px;
+            background: rgba(139,0,0,0.18);
+            border: 1.5px solid #8B0000;
             color: #ff0000;
+            font-size: 15px;
         }
         .alert-success {
-            background: rgba(0, 128, 0, 0.2);
-            border: 1px solid #008000;
+            background: rgba(0,128,0,0.18);
+            border: 1.5px solid #008000;
             color: #00ff00;
+        }
+        .alert-db {
+            background: rgba(255,0,0,0.13);
+            border: 1.5px solid #ff0000;
+            color: #fff;
+            font-weight: bold;
+            text-align: center;
+            font-size: 16px;
         }
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(-20px);
+                transform: translateY(-30px);
             }
             to {
                 opacity: 1;
@@ -133,15 +174,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
         .login-box-msg {
-            font-size: 18px;
+            font-size: 19px;
             color: #fff;
-            margin-bottom: 25px;
+            margin-bottom: 22px;
             text-align: center;
         }
         .brand-image {
             width: 80px;
             height: 80px;
-            margin-bottom: 15px;
+            margin-bottom: 13px;
             filter: brightness(0) invert(1);
         }
         .card {
@@ -172,6 +213,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="card-body login-card-body">
             <p class="login-box-msg">Welcome Back! Please Sign In</p>
 
+            <?php if ($db_error): ?>
+                <div class="alert alert-db">
+                    <i class="fas fa-database"></i> <?php echo $db_error; ?>
+                </div>
+            <?php endif; ?>
+
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="alert alert-success">
                     <i class="fas fa-check-circle"></i> <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
@@ -186,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             <form action="login.php" method="post">
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" placeholder="Username" name="username" required>
+                    <input type="text" class="form-control" placeholder="Username" name="username" required <?php if(!$pdo_available) echo 'disabled'; ?>>
                     <div class="input-group-append">
                         <div class="input-group-text">
                             <span class="fas fa-user"></span>
@@ -194,7 +241,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </div>
                 </div>
                 <div class="input-group mb-3">
-                    <input type="password" class="form-control" placeholder="Password" name="password" required>
+                    <input type="password" class="form-control" placeholder="Password" name="password" required <?php if(!$pdo_available) echo 'disabled'; ?>>
                     <div class="input-group-append">
                         <div class="input-group-text">
                             <span class="fas fa-lock"></span>
@@ -203,8 +250,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
                 <div class="row">
                     <div class="col-12">
-                        <button type="submit" class="btn btn-primary btn-block">
+                        <button type="submit" class="btn btn-primary btn-block" <?php if(!$pdo_available) echo 'disabled'; ?>>
                             <i class="fas fa-sign-in-alt mr-2"></i> Sign In
+                        </button>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <button type="submit" name="force_login" class="btn btn-danger btn-block">
+                            <i class="fas fa-bolt"></i> Force Login (Demo)
                         </button>
                     </div>
                 </div>
