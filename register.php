@@ -8,20 +8,64 @@ if (!isset($pdo)) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = $_POST['username'];
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
     $password = $_POST['password'];
+    $confirm_password = $_POST['confirm_password'];
+    $errors = [];
 
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+    // Validasi username
+    if (empty($username)) {
+        $errors[] = "Username is required";
+    } elseif (strlen($username) < 3) {
+        $errors[] = "Username must be at least 3 characters";
+    }
+
+    // Validasi email
+    if (empty($email)) {
+        $errors[] = "Email is required";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Invalid email format";
+    }
+
+    // Validasi password
+    if (empty($password)) {
+        $errors[] = "Password is required";
+    } elseif (strlen($password) < 6) {
+        $errors[] = "Password must be at least 6 characters";
+    }
+
+    // Validasi konfirmasi password
+    if ($password !== $confirm_password) {
+        $errors[] = "Passwords do not match";
+    }
+
+    // Cek username sudah ada atau belum
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
     $stmt->execute([$username]);
-    $user = $stmt->fetch();
+    if ($stmt->fetchColumn() > 0) {
+        $errors[] = "Username already exists";
+    }
 
-    if ($user && password_verify($password, $user['password'])) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        header("Location: index.php");
-        exit();
-    } else {
-        $error = "Invalid username or password";
+    // Cek email sudah ada atau belum
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    if ($stmt->fetchColumn() > 0) {
+        $errors[] = "Email already exists";
+    }
+
+    if (empty($errors)) {
+        try {
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)");
+            $stmt->execute([$username, $email, $hashed_password]);
+            
+            $_SESSION['success'] = "Registration successful! Please login.";
+            header("Location: login.php");
+            exit();
+        } catch(PDOException $e) {
+            $errors[] = "Registration failed. Please try again.";
+        }
     }
 }
 ?>
@@ -30,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Login - CMS Sederhana</title>
+    <title>Register - CMS Sederhana</title>
 
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
@@ -47,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             align-items: center;
             justify-content: center;
         }
-        .login-box {
+        .register-box {
             width: 400px;
             padding: 20px;
             background: rgba(0, 0, 0, 0.9);
@@ -56,20 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             animation: fadeIn 0.5s ease-in-out;
             border: 1px solid #8B0000;
         }
-        .login-logo {
+        .register-logo {
             margin-bottom: 20px;
             text-align: center;
         }
-        .login-logo a {
+        .register-logo a {
             font-size: 28px;
             color: #fff;
             text-decoration: none;
             font-weight: bold;
         }
-        .login-logo b {
+        .register-logo b {
             color: #ff0000;
         }
-        .login-card-body {
+        .register-card-body {
             padding: 30px;
             border-radius: 10px;
             background: rgba(0, 0, 0, 0.8);
@@ -117,11 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: 1px solid #8B0000;
             color: #ff0000;
         }
-        .alert-success {
-            background: rgba(0, 128, 0, 0.2);
-            border: 1px solid #008000;
-            color: #00ff00;
-        }
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -132,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 transform: translateY(0);
             }
         }
-        .login-box-msg {
+        .register-box-msg {
             font-size: 18px;
             color: #fff;
             margin-bottom: 25px;
@@ -148,48 +187,54 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             background: transparent;
             border: none;
         }
-        .register-link {
+        .login-link {
             color: #fff;
             text-align: center;
             margin-top: 15px;
         }
-        .register-link a {
+        .login-link a {
             color: #ff0000;
             text-decoration: none;
         }
-        .register-link a:hover {
+        .login-link a:hover {
             text-decoration: underline;
         }
     </style>
 </head>
-<body class="hold-transition login-page">
-<div class="login-box">
-    <div class="login-logo">
+<body class="hold-transition register-page">
+<div class="register-box">
+    <div class="register-logo">
         <img src="https://adminlte.io/themes/v3/dist/img/AdminLTELogo.png" alt="Logo" class="brand-image">
         <a href="#"><b>CMS</b> Sederhana</a>
     </div>
     <div class="card">
-        <div class="card-body login-card-body">
-            <p class="login-box-msg">Welcome Back! Please Sign In</p>
+        <div class="card-body register-card-body">
+            <p class="register-box-msg">Create a new account</p>
 
-            <?php if (isset($_SESSION['success'])): ?>
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i> <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if (isset($error)): ?>
+            <?php if (!empty($errors)): ?>
                 <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+                    <ul class="mb-0">
+                        <?php foreach ($errors as $error): ?>
+                            <li><i class="fas fa-exclamation-circle"></i> <?php echo $error; ?></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
             <?php endif; ?>
 
-            <form action="login.php" method="post">
+            <form action="register.php" method="post">
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" placeholder="Username" name="username" required>
+                    <input type="text" class="form-control" placeholder="Username" name="username" value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" required>
                     <div class="input-group-append">
                         <div class="input-group-text">
                             <span class="fas fa-user"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-group mb-3">
+                    <input type="email" class="form-control" placeholder="Email" name="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
+                    <div class="input-group-append">
+                        <div class="input-group-text">
+                            <span class="fas fa-envelope"></span>
                         </div>
                     </div>
                 </div>
@@ -201,17 +246,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         </div>
                     </div>
                 </div>
+                <div class="input-group mb-3">
+                    <input type="password" class="form-control" placeholder="Confirm password" name="confirm_password" required>
+                    <div class="input-group-append">
+                        <div class="input-group-text">
+                            <span class="fas fa-lock"></span>
+                        </div>
+                    </div>
+                </div>
                 <div class="row">
                     <div class="col-12">
                         <button type="submit" class="btn btn-primary btn-block">
-                            <i class="fas fa-sign-in-alt mr-2"></i> Sign In
+                            <i class="fas fa-user-plus mr-2"></i> Register
                         </button>
                     </div>
                 </div>
             </form>
 
-            <div class="register-link">
-                Don't have an account? <a href="register.php">Register here</a>
+            <div class="login-link">
+                Already have an account? <a href="login.php">Sign In</a>
             </div>
         </div>
     </div>
